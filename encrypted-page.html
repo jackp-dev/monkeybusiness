@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Private Page</title>
+<style>
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    max-width: 700px;
+    margin: 60px auto;
+    padding: 0 20px;
+    line-height: 1.6;
+    color: #ffffff;
+    background: #000000;
+  }
+  h1 { font-size: 1.6em; }
+  a { color: #6fb3ff; }
+  a:visited { color: #a98fdb; }
+  #lock-screen, #content {
+    display: block;
+  }
+  #content { display: none; }
+  input[type="password"], input[type="text"], input[type="email"] {
+    font-family: inherit;
+    font-size: 1em;
+    padding: 8px;
+    width: 100%;
+    max-width: 300px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    background: #111;
+    color: #fff;
+    border: 1px solid #555;
+  }
+  button {
+    font-family: inherit;
+    font-size: 1em;
+    padding: 8px 16px;
+    cursor: pointer;
+    background: #222;
+    color: #fff;
+    border: 1px solid #555;
+  }
+  button:hover { background: #333; }
+  #error-msg {
+    color: #ff6b6b;
+    display: none;
+    margin-top: 8px;
+  }
+  form {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #444;
+  }
+  label { display: block; margin-top: 10px; font-weight: bold; }
+
+  /* Typing animation cursor, only shown while typing */
+  .type-target.typing::after {
+    content: "|";
+    margin-left: 2px;
+    animation: blink 0.8s step-start infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <h1>This page is private</h1>
+  <p>Enter the password to view the content.</p>
+  <input type="password" id="password-input" placeholder="Password">
+  <br>
+  <button onclick="unlock()">Unlock</button>
+  <p id="error-msg">Incorrect password. Try again.</p>
+</div>
+
+<!-- ENCRYPTED CONTENT WILL BE DECRYPTED INTO HERE -->
+<div id="content"></div>
+
+<script>
+/*
+  HOW THIS WORKS:
+  - The real text/links/HTML below is AES-GCM encrypted and stored as "cipherPayload".
+  - Nobody can read it by viewing page source — it's ciphertext.
+  - When the correct password is entered, the browser derives a key from it
+    (PBKDF2) and decrypts the content locally, then injects it into the page.
+  - Whatever element in your source content has class="type-target" will be
+    typed out character by character. Everything else appears instantly
+    (no animation) to keep things fast.
+  - See encryptor-tool.html to generate cipherPayload from your real content + password.
+*/
+
+const cipherPayload = {
+  salt: "cvqsalgsB1QcBE7+Wh5L7Q==",
+  iv: "Qor6pFQQcjxDKolN",
+  ciphertext: "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"
+};
+function b64ToBytes(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+async function deriveKey(password, saltBytes) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: saltBytes, iterations: 200000, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+}
+
+function typeOutElement(el, speedMs) {
+  const fullText = el.textContent;
+  el.textContent = "";
+  el.classList.add("typing");
+  let i = 0;
+  function step() {
+    if (i < fullText.length) {
+      el.textContent += fullText.charAt(i);
+      i++;
+      setTimeout(step, speedMs);
+    } else {
+      el.classList.remove("typing");
+    }
+  }
+  step();
+}
+
+async function unlock() {
+  const password = document.getElementById("password-input").value;
+  const errorMsg = document.getElementById("error-msg");
+  errorMsg.style.display = "none";
+
+  try {
+    const salt = b64ToBytes(cipherPayload.salt);
+    const iv = b64ToBytes(cipherPayload.iv);
+    const ciphertext = b64ToBytes(cipherPayload.ciphertext);
+
+    const key = await deriveKey(password, salt);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv }, key, ciphertext
+    );
+
+    const html = new TextDecoder().decode(decrypted);
+    const contentDiv = document.getElementById("content");
+    contentDiv.innerHTML = html;
+
+    document.getElementById("lock-screen").style.display = "none";
+    contentDiv.style.display = "block";
+
+    // Quick typewriter effect on the designated element only; everything
+    // else in contentDiv is already rendered flat with no animation.
+    const typeTarget = contentDiv.querySelector(".type-target");
+    if (typeTarget) {
+      typeOutElement(typeTarget, 18); // ms per character — quick
+    }
+  } catch (e) {
+    errorMsg.style.display = "block";
+  }
+}
+
+// Allow pressing Enter to submit
+document.getElementById("password-input").addEventListener("keyup", function(e) {
+  if (e.key === "Enter") unlock();
+});
+</script>
+
+</body>
+</html>
